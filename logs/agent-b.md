@@ -59,3 +59,36 @@
 
 ### Next step
 - Fix budget-charging bug; then C7 judge pipeline for the remainder of Gate P3.
+
+---
+
+## Entry 2 — 2026-10-11T12:55:00Z — Agent B — Adversarial Review & Issue Filing
+
+### Commit(s)
+- Pending commit for adversarial review.
+
+### What changed
+- Completed thorough adversarial code review with maximum scrutiny across Agent B's components (C6 Gateway, C8 Verifier, C12 Observability).
+- Documented findings in `reviews/ADVERSARIAL_REVIEW_AGENT_B.md`:
+  - Finding 1 [CRITICAL]: Uncharged token consumption and financial exhaustion during schema validation retries.
+  - Finding 2 [HIGH]: Second-order prompt injection via unsanitized `repair_error` feedback.
+  - Finding 3 [HIGH]: Memory exhaustion / DoS via unbounded file reading in evidence verifier.
+  - Finding 4 [HIGH]: Replay cache poisoning due to missing cryptographic signatures on recording store.
+  - Finding 5 [MEDIUM]: Windows DOS device hang (CON/PRN) & path confinement gaps in verifier.
+  - Finding 6 [HIGH]: Incomplete secret pattern coverage in `redact.py` permitting credential leakage.
+- Created GitHub issues on `dptel22/reposentry` on behalf of user:
+  - Issue #6: `[SECURITY/C6] Uncharged Token Consumption and Financial Exhaustion Bug in Schema Validation Retry`
+  - Issue #7: `[SECURITY/C6] Second-Order Prompt Injection via Unsanitized repair_error Feedback Loop`
+  - Issue #8: `[ROBUSTNESS/C8] Memory Exhaustion / DoS via Unbounded File Reading in Evidence Verifier`
+  - Issue #9: `[SECURITY/C6] Replay Cache Poisoning: Missing Cryptographic Integrity on Recording Store`
+  - Issue #10: `[SECURITY/C8] Windows DOS Device Hang (CON/PRN) & Path Confinement Gaps in Verifier`
+  - Issue #11: `[PRIVACY/C12] Insufficient Secret Redaction in redact.py Permitting Token Leakage`
+- Updated `reviews/README.md`.
+- Cleaned up Windows device file artifact `nul` and enhanced `.gitignore` to maintain clean working tree.
+
+### Why
+- User requested adversarial code review with maximum scrutiny and filing of tracking issues on GitHub for Agent B workspace.
+
+### Next step
+- Begin remediation of issues #6 through #11 on `agent-b/work`.
+
