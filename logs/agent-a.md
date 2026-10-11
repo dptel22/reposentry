@@ -196,4 +196,34 @@
 ### Next step
 - P0 exit gate validation and tag `contracts-v0`.
 
+---
+
+## Entry 4 — 2026-10-11T12:45:00Z — Agent A — Adversarial Review & Issue Filing
+
+### Commit(s)
+- Pending commit for adversarial review.
+
+### What changed
+- Completed thorough adversarial code review with maximum scrutiny across contracts, config, and CLI.
+- Documented findings in `reviews/ADVERSARIAL_REVIEW_P0.md`:
+  - Finding 1 [HIGH]: Windows namespace & path traversal bypasses in path normalization.
+  - Finding 2 [HIGH]: Plaintext secret leakage in config dumps and logs.
+  - Finding 3 [MEDIUM]: Unbounded collections and NaN/Inf floats causing DoS and non-deterministic hashing.
+  - Finding 4 [HIGH]: Hostile AST / Unicode smuggling (Bidi RTL, homoglyphs, zero-width) in extracted symbols.
+  - Finding 5 [MEDIUM]: Unsanitized CLI path inputs and exception handlers echoing hostile payloads.
+- Created GitHub issues on `dptel22/reposentry` on behalf of user:
+  - Issue #1: `[SECURITY/C0] Windows Namespace & Path Traversal Bypasses in Path Normalization (ADS, DOS Devices, UNC)`
+  - Issue #2: `[SECURITY/C0] Insecure Secret Handling: Plaintext SecretStr Leakage in Config Dumps and Logs`
+  - Issue #3: `[ROBUSTNESS/C0] Unbounded Collections and Floats (NaN/Inf) Causing DoS & Non-Deterministic Hashing`
+  - Issue #4: `[SECURITY/C0] Hostile AST / Unicode Smuggling (Bidi RTL, Homoglyphs, Zero-Width) in Extracted Symbols`
+  - Issue #5: `[RELIABILITY/CLI] Unsanitized CLI Path Inputs and Exception Handlers Echoing Hostile Payloads`
+- Updated `reviews/README.md`.
+
+### Why
+- User requested adversarial code review with high scrutiny and creation of git issues on the branch.
+
+### Next step
+- Begin remediation of reported adversarial issues (#1 through #5) on `agent-a/work`.
+
+
 
