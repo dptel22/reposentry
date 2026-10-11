@@ -142,7 +142,7 @@
 ## Entry 3 — 2026-10-11T12:30:00Z — Agent A — Phase P0 — Milestone A2 (C0 Contracts & Config)
 
 ### Commit(s)
-- Pending commit for Milestone A2.
+- `345e4ee` — feat(c0): milestone A2 - define and test contracts v0 and layered config
 
 ### What changed
 - Created `src/reposentry/contracts/models.py`:
