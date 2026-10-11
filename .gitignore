@@ -34,3 +34,6 @@ htmlcov/
 # Environments
 .env
 .env.local
+
+# Local tooling
+.mimosa/
