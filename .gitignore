@@ -1,36 +1,63 @@
-# Python
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+.Python
 *.egg-info/
 *.egg
 dist/
 build/
 .eggs/
+*.manifest
+*.spec
 
 # Virtual environments
 .venv/
 venv/
 env/
+ENV/
+env.bak/
+venv.bak/
 
-# IDE
+# IDE and editors
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+*.sublime-workspace
+*.sublime-project
 
-# OS
+# OS artifacts
 .DS_Store
 Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
 
-# Test / coverage
+# Test, lint, coverage, and analysis caches
 .coverage
+.coverage.*
 htmlcov/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.hypothesis/
+coverage.xml
+nosetests.xml
+bandit-report.*
+semgrep-report.*
 
-# Environments
+# Logs, databases, and scratch files
+*.log
+*.sqlite
+*.db
+scratch/
+tmp/
+temp/
+
+# Environment files
 .env
-.env.local
+.env.*
+!.env.example
+
