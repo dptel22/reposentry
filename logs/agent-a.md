@@ -89,7 +89,7 @@
 ## Entry 2 — 2026-10-11T12:15:00Z — Agent A — Phase P0 — Milestone A1 (Tooling, CLI, Project Config)
 
 ### Commit(s)
-- Pending commit for Milestone A1.
+- `d870190` — feat(p0): milestone A1 - project tooling, cli structure, and clean git configuration
 
 ### What changed
 - Created `pyproject.toml` with:
