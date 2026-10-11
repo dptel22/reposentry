@@ -1,0 +1,29 @@
+{
+  "schema_version": "0.1.0",
+  "finding_id": "find-c4a1001",
+  "rule_id": "AUTH_CONSISTENCY_DEVIANT",
+  "category": "A",
+  "title": "Deviant authentication mechanism on sensitive route",
+  "description": "Endpoint /api/v1/users/{user_id} implements an inline custom authorization check differing from the dominant require_auth decorator pattern.",
+  "severity": "medium",
+  "confidence": "high",
+  "evidence": [
+    {
+      "schema_version": "0.1.0",
+      "evidence_id": "ev-883a9f1b",
+      "file_path": "app/routes/users.py",
+      "line_range": {
+        "schema_version": "0.1.0",
+        "start_line": 30,
+        "end_line": 34,
+        "start_col": 4,
+        "end_col": 28
+      },
+      "snippet": "if not current_user.is_admin:\n    raise HTTPException(status_code=403, detail='Forbidden')",
+      "description": "Inline imperative role check instead of declared dependency guard.",
+      "ast_node_type": "If"
+    }
+  ],
+  "unproven_assumptions": "Assumes current_user object is populated by upstream middleware.",
+  "needs_review": false
+}

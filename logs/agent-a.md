@@ -137,3 +137,63 @@
 ### Next step
 - A2: Define C0 Contracts (Pydantic models for Route, Symbol, GuardSignature, Finding, Evidence, Verdict, Score, Coverage, RunManifest, TraceEvent) and contract unit/adversarial tests.
 
+---
+
+## Entry 3 — 2026-10-11T12:30:00Z — Agent A — Phase P0 — Milestone A2 (C0 Contracts & Config)
+
+### Commit(s)
+- Pending commit for Milestone A2.
+
+### What changed
+- Created `src/reposentry/contracts/models.py`:
+  - Typed, versioned (`schema_version = "0.1.0"`), immutable (`frozen = True`), strict (`extra = "forbid"`) Pydantic models for:
+    - `Route` (Flask and FastAPI support, HTTP methods validation, line range)
+    - `Symbol` (SymbolKind, parameters, return type, docstring)
+    - `GuardSignature` (GuardMechanismType, confidence, rationale, provenance)
+    - `Evidence` (exact code slice, ast_node_type, sanitized text)
+    - `Finding` (rule_id, category A/B/C, severity, confidence, evidence list)
+    - `Verdict` (status confirmed/refuted/inconclusive/abstain, cited evidence IDs)
+    - `Score` (overall score 0-100, factor scores, weights, coverage penalty)
+    - `Coverage` (scanned/total files, skipped files mapping, parse errors)
+    - `RunManifest` (run_id, files list with SHA256 and size, manifest_hash)
+    - `TraceEvent` (event_id, stage, span_name, duration_ms, attributes)
+  - Canonical JSON serialization (`canonical_json`) and content hashing (`compute_content_hash`) with sorted keys.
+  - Path normalization rejecting path traversal (`..`) and absolute paths.
+  - Input sanitization rejecting illegal control characters and bounding string lengths.
+- Created `src/reposentry/config/settings.py`:
+  - Layered configuration: defaults < file < environment.
+  - Enforced secret isolation: `llm_api_key` can only be loaded from environment variables and is rejected from config files.
+  - Sanitized secret errors that never echo secret values.
+- Created contract example fixtures in `fixtures/contracts_v0/`:
+  - `route.json`, `symbol.json`, `guard_signature.json`, `evidence.json`, `finding.json`, `verdict.json`, `score.json`, `coverage.json`, `run_manifest.json`, `trace_event.json` for Agent B consumption.
+- Created contract test suite:
+  - `tests/test_contracts/test_serialization.py`: round-trip serialization, extra field rejection, schema version validation, canonical serialization stability, all 10 fixture files validation.
+  - `tests/test_contracts/test_adversarial.py`: path traversal rejection, absolute path rejection, control character rejection, oversized string rejection, inverted line/column range rejection.
+  - `tests/test_contracts/test_config.py`: layered precedence, secret isolation from files, sanitized missing secret errors.
+
+### Why
+- Delivers C0 Contracts required by Phase P0 and establishes the frozen contract baseline for two-agent synchronization (S0/S1).
+
+### Decisions
+- Frozen contract schema version locked to `0.1.0`.
+- All paths within contracts must be relative to the workspace root.
+
+### Plan deviations
+- None.
+
+### Tests
+- 10 contract fixture definitions validated.
+- Serialization, adversarial, and config test cases implemented.
+
+### Adversarial self-review
+- **Path Traversal Protection:** Every path field is validated through `normalize_and_validate_path` rejecting `..`, Windows drive letters, and Unix roots.
+- **Strict Parsing:** Pydantic `extra = "forbid"` guarantees unknown or malformed fields cannot silently pass into downstream components.
+- **Credential Hygiene:** Config layer strictly prevents secrets in config files.
+
+### Assumptions and NOT VERIFIED items
+- Schema version 0.1.0 frozen for Phase P0 baseline.
+
+### Next step
+- P0 exit gate validation and tag `contracts-v0`.
+
+

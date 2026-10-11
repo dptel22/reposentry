@@ -1,0 +1,9 @@
+{
+  "schema_version": "0.1.0",
+  "verdict_id": "vrd-99210a",
+  "finding_id": "find-c4a1001",
+  "status": "confirmed",
+  "rationale": "Code examination confirms the handler bypasses standard RBAC dependency injection and executes manual conditional branching, violating module consistency.",
+  "cited_evidence_ids": ["ev-883a9f1b"],
+  "confidence": 0.9
+}
