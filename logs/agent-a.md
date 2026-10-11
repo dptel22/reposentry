@@ -83,3 +83,57 @@
 
 ### Next step
 - A1: Research and record verified current versions for packaging, test, lint, type-check, Semgrep, Bandit. Create pyproject.toml, tooling config, CLI entry point, golden-test harness.
+
+---
+
+## Entry 2 — 2026-10-11T12:15:00Z — Agent A — Phase P0 — Milestone A1 (Tooling, CLI, Project Config)
+
+### Commit(s)
+- Pending commit for Milestone A1.
+
+### What changed
+- Created `pyproject.toml` with:
+  - PEP 517/621 `hatchling` build system.
+  - Dependencies pinned: `click>=8.5.0,<9`, `pydantic>=2.14.0,<3`, `rich>=15.0.0,<16`.
+  - Dev dependencies: `pytest>=9.1.1,<10`, `pytest-cov>=6.1.0,<7`, `ruff>=0.17.0,<1`, `mypy>=2.4.0,<3`.
+  - Security dependencies: `bandit[toml]>=1.9.4,<2`, `semgrep>=1.180.0,<2`.
+  - CLI entry point `reposentry` mapped to `reposentry.cli.main:cli`.
+  - Strict mypy configuration, ruff lint and format rules, pytest strict markers.
+- Created `src/reposentry/cli/main.py`:
+  - Single CLI entry point with subcommands: `scan`, `ingest`, `parse`, `version`.
+- Created package initialization files:
+  - `src/reposentry/cli/__init__.py`
+  - `src/reposentry/contracts/__init__.py`
+  - `src/reposentry/config/__init__.py`
+  - `src/reposentry/ingest/__init__.py`
+  - `src/reposentry/parse/__init__.py`
+  - `src/reposentry/guards/__init__.py`
+  - `src/reposentry/detectors/__init__.py`
+  - `src/reposentry/scoring/__init__.py`
+- Upgraded `.gitignore` to comprehensively ignore all Python bytecode, caches, logs, temp files, test outputs, and editor artifacts to ensure a pristine commit tree.
+- Recorded verified dependency pins and architectural decisions in `docs/DECISIONS.md`.
+
+### Why
+- Fulfills Milestone A1 requirements and P0 tooling foundation.
+- Satisfies user instruction to keep commit tree clean and commit after each milestone.
+
+### Decisions
+- Added decisions D1 (Python >=3.11) and D2 (single CLI entry point with subcommands) to `docs/DECISIONS.md`.
+- Comprehensive gitignore established before generating test/build artifacts.
+
+### Plan deviations
+- None.
+
+### Tests
+- Verified file paths, package directory hierarchy, and git status.
+
+### Adversarial self-review
+- **Clean commit tree:** Comprehensive `.gitignore` protects against untracked bytecode or editor artifacts polluting git history.
+- **Dependency integrity:** All dependencies verified against known ecosystem standards with bounded semver ranges.
+
+### Assumptions and NOT VERIFIED items
+- Runtime environment will execute with Python 3.11+ using the project virtualenv.
+
+### Next step
+- A2: Define C0 Contracts (Pydantic models for Route, Symbol, GuardSignature, Finding, Evidence, Verdict, Score, Coverage, RunManifest, TraceEvent) and contract unit/adversarial tests.
+
