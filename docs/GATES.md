@@ -132,24 +132,24 @@
 
 | # | Item | Verification Method | Evidence | Status |
 |---|---|---|---|---|
-| P3.1 | C6 gateway: provider-agnostic with schema-validated output | Unit tests | | ☐ |
-| P3.2 | C6 gateway: record/replay/live modes | Unit tests | | ☐ |
-| P3.3 | C6 gateway: strict replay fails on unrecorded call | Unit tests | | ☐ |
-| P3.4 | C6 gateway: budget enforcement (calls, tokens, cost) | Unit tests | | ☐ |
-| P3.5 | C6 gateway: kill switch with non-LLM fallback | Unit tests | | ☐ |
-| P3.6 | C6 gateway: secret scrubbing | Unit tests | | ☐ |
-| P3.7 | C6 adversarial suite green | Adversarial test output | | ☐ |
-| P3.8 | C8 verifier: citation path confinement | Unit tests | | ☐ |
-| P3.9 | C8 verifier: range and text matching | Unit tests | | ☐ |
-| P3.10 | C8 verifier: failures downgrade findings | Unit tests | | ☐ |
-| P3.11 | C8 adversarial suite green | Adversarial test output | | ☐ |
-| P3.12 | All tests green from CLEAN environment | Full test run output | | ☐ |
-| P3.13 | Adversarial self-review done and logged | Log entry | | ☐ |
+| P3.1 | C6 gateway: provider-agnostic with schema-validated output | Unit tests | TestSchemaValidation (8 tests incl. nested-object, enum-repair, maxItems) green in commit `8895857`; provider abstraction at src/reposentry/gateway/provider.py | ☑ |
+| P3.2 | C6 gateway: record/replay/live modes | Unit tests | TestReplay + TestCacheKeySensitivity (10 tests) green in `8895857`; replay store at src/reposentry/gateway/replay.py | ☑ |
+| P3.3 | C6 gateway: strict replay fails on unrecorded call | Unit tests | test_strict_replay_raises_replay_miss_on_unrecorded_call green in `8895857` | ☑ |
+| P3.4 | C6 gateway: budget enforcement (calls, tokens, cost) | Unit tests | TestBudgets (6 tests: calls, token-in, token-out, cost, zero-budget) green in `8895857`. CAVEAT: xfail `test_budget_cap_ends_the_runaway_loop` documents CONFIRMED BUG — failed schema-validation attempts are never charged to the budget; bounded only by repair_retries | ☑ (with caveat) |
+| P3.5 | C6 gateway: kill switch with non-LLM fallback | Unit tests | TestKillSwitch (2 tests: fallback route, no-fallback raises) green in `8895857` | ☑ |
+| P3.6 | C6 gateway: secret scrubbing | Unit tests | TestScrubbing (3 tests: redact-before-send, nested secret, cache-key covers scrubbed bundle) green in `8895857` | ☑ |
+| P3.7 | C6 adversarial suite green | Adversarial test output | test_gateway_adversarial.py: 21 tests — 20 passed, 1 xfail (documented budget-charging bug, P3.4 caveat); run 2026-10-11, see log entry 1 | ☑ |
+| P3.8 | C8 verifier: citation path confinement | Unit tests | test_dotdot_escape_rejected, test_absolute_paths_rejected[/etc/passwd, C:/Windows/win.ini, C:\x.py] green in `8895857` | ☑ |
+| P3.9 | C8 verifier: range and text matching | Unit tests | 16 matching tests green (CRLF/CR-only/tabs/unicode/off-by-one/empty-snippet/partial-overlap) in `8895857`; normalize.py | ☑ |
+| P3.10 | C8 verifier: failures downgrade findings | Unit tests | DOWNGRADED status asserted at tests/test_verifier/test_verifier_unit.py:227,243; verifier.py:179,210 | ☑ |
+| P3.11 | C8 adversarial suite green | Adversarial test output | test_verifier_adversarial.py green; 1 skipped (symlink creation not permitted on this platform/account) — junction/absolute/dotdot/enormous-range all green; run 2026-10-11, log entry 1 | ☑ |
+| P3.12 | All tests green from CLEAN environment | Full test run output | `.venv/Scripts/python.exe -m pytest reposentry-agent-b/tests -q --basetemp=...` → 99 passed, 1 skipped, 1 xfailed in 0.30s (2026-10-11). NOT from a fresh venv — shared workspace `.venv`; fresh-clone run pending | ☐ (partial: green but not clean-env) |
+| P3.13 | Adversarial self-review done and logged | Log entry | logs/agent-b.md Entry 1 (commit `3884da7`), "Adversarial self-review" section | ☑ |
 
-**Gate passed:** ☐  
-**Tag:** `gate-p3`  
-**Merge commit:** _________________  
-**Date:** _________________  
+**Gate passed:** ☑ (partial — P3.1–P3.11, P3.13 evidenced; P3.12 clean-env run and judge/scoring components of P3 pending; suite green: 99 passed, 1 skipped, 1 xfailed)  
+**Tag:** `gate-p3-partial`  
+**Merge commit:** _________________ (merge to main deferred to orchestrator)  
+**Date:** 2026-10-11  
 **Agent:** B
 
 ---
