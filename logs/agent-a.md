@@ -201,7 +201,7 @@
 ## Entry 4 — 2026-10-11T12:45:00Z — Agent A — Adversarial Review & Issue Filing
 
 ### Commit(s)
-- Pending commit for adversarial review.
+- `5adbfe8` — docs(review): record adversarial security review and git issues #1-#5
 
 ### What changed
 - Completed thorough adversarial code review with maximum scrutiny across contracts, config, and CLI.
