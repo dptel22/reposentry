@@ -257,7 +257,7 @@
 ## Entry 6 — 2026-10-12T16:50:00Z — Agent A — Phase P1 — Component C1 Ingest Sandbox
 
 ### Commit(s)
-- Pending commit for Component C1.
+- `8a0526f` — feat(c1): milestone A3 - safe ingest sandbox, archive guards, and manifests
 
 ### What changed
 - Created `src/reposentry/ingest/sandbox.py`:
