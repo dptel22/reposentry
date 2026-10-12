@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from enum import Enum
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Literal
@@ -13,12 +14,38 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 SCHEMA_VERSION: str = "0.1.0"
 
+# Windows reserved DOS device names (case-insensitive, with or without extension)
+WINDOWS_RESERVED_DEVICE_NAMES: frozenset[str] = frozenset(
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        *(f"COM{i}" for i in range(1, 10)),
+        *(f"LPT{i}" for i in range(1, 10)),
+    }
+)
+
+
+def _round_floats(obj: Any) -> Any:
+    """Recursively quantize floats to 4 decimal places for deterministic cross-platform hashing."""
+    if isinstance(obj, float):
+        if obj != obj or obj == float("inf") or obj == float("-inf"):
+            raise ValueError("NaN and Infinity are not permitted in canonical serialization.")
+        return round(obj, 4)
+    if isinstance(obj, dict):
+        return {k: _round_floats(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_round_floats(v) for v in obj]
+    return obj
+
 
 def canonical_json(data: Any) -> str:
-    """Produce deterministic, canonical JSON representation with sorted keys and no whitespace."""
+    """Produce deterministic, canonical JSON representation with sorted keys, quantized floats, and no whitespace."""
     if isinstance(data, BaseModel):
         data = data.model_dump(mode="json")
-    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    quantized = _round_floats(data)
+    return json.dumps(quantized, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False)
 
 
 def compute_content_hash(data: Any) -> str:
@@ -30,35 +57,90 @@ def compute_content_hash(data: Any) -> str:
 def normalize_and_validate_path(path_str: str) -> str:
     """Validate and normalize workspace-relative paths.
 
-    Rejects absolute paths and parent-directory navigation ('..').
-    Converts Windows backslashes to standard forward slashes.
+    Rejects:
+    - Absolute paths (Unix '/' or Windows drive letters)
+    - Drive-relative paths ('/foo', '\\foo')
+    - UNC paths ('//server/share', '\\\\server\\share')
+    - Alternate Data Streams (paths containing ':')
+    - Parent-directory navigation ('..')
+    - Windows reserved DOS device names ('CON', 'PRN', 'AUX', 'NUL', 'COM1-9', 'LPT1-9')
+    - Trailing spaces and dots that Windows silently strips
     """
     if not path_str or not path_str.strip():
         raise ValueError("Path cannot be empty.")
 
-    # Check for forbidden traversal attempts
-    cleaned = path_str.strip().replace("\\", "/")
-    parts = cleaned.split("/")
-    if any(p == ".." for p in parts):
-        raise ValueError(f"Path traversal ('..') is strictly forbidden: '{path_str}'")
+    raw = path_str.strip()
 
-    # Reject absolute paths (Windows drive letters or Unix root)
-    if PureWindowsPath(path_str).is_absolute() or PurePosixPath(path_str).is_absolute():
-        raise ValueError(f"Absolute paths are forbidden; paths must be workspace-relative: '{path_str}'")
-    if re.match(r"^[a-zA-Z]:", path_str):
-        raise ValueError(f"Drive letter absolute paths are forbidden: '{path_str}'")
+    # Reject Alternate Data Streams and drive letters
+    if ":" in raw:
+        raise ValueError(f"Path contains illegal colon (ADS or drive letter): '{path_str}'")
 
-    return "/".join(p for p in parts if p and p != ".")
+    # Reject leading slashes (Unix absolute, Windows drive-relative, or UNC)
+    if raw.startswith(("/", "\\")):
+        raise ValueError(f"Path must be relative, not absolute or drive-relative: '{path_str}'")
+
+    cleaned = raw.replace("\\", "/")
+
+    # Reject UNC paths
+    if cleaned.startswith("//"):
+        raise ValueError(f"UNC network paths are strictly forbidden: '{path_str}'")
+
+    parts = [p for p in cleaned.split("/") if p and p != "."]
+    if not parts:
+        raise ValueError("Path resolves to empty directory root.")
+
+    for part in parts:
+        # Check for traversal
+        if part == "..":
+            raise ValueError(f"Path traversal ('..') is strictly forbidden: '{path_str}'")
+
+        # Reject trailing dots and spaces (Windows normalization vulnerability)
+        if part.endswith(".") or part.endswith(" "):
+            raise ValueError(f"Path component has forbidden trailing dot or space: '{part}'")
+
+        # Check Windows reserved DOS device names (e.g. CON, NUL, AUX, NUL.py)
+        base_name = part.split(".")[0].upper()
+        if base_name in WINDOWS_RESERVED_DEVICE_NAMES:
+            raise ValueError(f"Windows reserved DOS device name is forbidden: '{part}'")
+
+    # Double check with pathlib
+    if PureWindowsPath(raw).is_absolute() or PurePosixPath(raw).is_absolute():
+        raise ValueError(f"Absolute paths are forbidden: '{path_str}'")
+
+    return "/".join(parts)
 
 
 def sanitize_text(text: str, max_length: int = 10000) -> str:
-    """Sanitize strings: check bounds and reject control characters except standard whitespace."""
+    """Sanitize strings: normalize Unicode (NFKC), strip hostile Bidi/format chars, check bounds."""
     if len(text) > max_length:
         raise ValueError(f"Text length ({len(text)}) exceeds maximum allowed ({max_length})")
-    # Reject control characters (0-31 except tab \t, newline \n, carriage return \r)
-    if any(ord(c) < 32 and c not in ("\t", "\n", "\r") for c in text):
-        raise ValueError("String contains illegal control characters")
-    return text
+
+    # Normalize homoglyphs and compatibility characters
+    normalized = unicodedata.normalize("NFKC", text)
+
+    # Filter out illegal control characters and Unicode Format/Surrogate characters (Cf, Cs)
+    # This strips Bidi override characters (e.g. \u202E), zero-width spaces (\u200B), and BOM (\uFEFF)
+    sanitized_chars: list[str] = []
+    for c in normalized:
+        code = ord(c)
+        cat = unicodedata.category(c)
+
+        # Allow standard printable whitespace: tab (\t), newline (\n), carriage return (\r)
+        if code in (9, 10, 13):
+            sanitized_chars.append(c)
+            continue
+
+        # Reject ASCII control characters (0-31 and 127)
+        if code < 32 or code == 127:
+            raise ValueError("String contains illegal control characters")
+
+        # Reject Unicode Format characters (Cf: bidi overrides, zero-width chars) and Surrogates (Cs)
+        if cat in ("Cf", "Cs"):
+            raise ValueError(f"String contains illegal Unicode format/control character (U+{code:04X})")
+
+        sanitized_chars.append(c)
+
+    return "".join(sanitized_chars)
 
 
 class BaseContract(BaseModel):
@@ -129,20 +211,20 @@ class Symbol(BaseContract):
     file_path: str = Field(description="Normalized workspace-relative path")
     line_range: LineRange
     docstring: str | None = Field(default=None, max_length=5000)
-    parameters: list[str] = Field(default_factory=list)
+    parameters: list[str] = Field(default_factory=list, max_length=256)
     return_type: str | None = Field(default=None, max_length=256)
-    decorators: list[str] = Field(default_factory=list)
+    decorators: list[str] = Field(default_factory=list, max_length=128)
 
     @field_validator("file_path")
     @classmethod
     def validate_path(cls, v: str) -> str:
         return normalize_and_validate_path(v)
 
-    @field_validator("name", "return_type", mode="before")
+    @field_validator("name", "return_type", "docstring", mode="before")
     @classmethod
     def sanitize_strings(cls, v: Any) -> Any:
         if isinstance(v, str):
-            return sanitize_text(v, max_length=256)
+            return sanitize_text(v, max_length=5000)
         return v
 
 
@@ -156,12 +238,12 @@ class Route(BaseContract):
     """Extracted web endpoint definition."""
 
     path: str = Field(min_length=1, max_length=1024, description="URL route pattern")
-    http_methods: list[str] = Field(min_length=1, description="Supported HTTP methods (GET, POST, etc.)")
+    http_methods: list[str] = Field(min_length=1, max_length=16, description="Supported HTTP methods (GET, POST, etc.)")
     handler_name: str = Field(min_length=1, max_length=256)
     file_path: str = Field(description="Normalized workspace-relative path")
     line_range: LineRange
     framework: FrameworkType
-    guards: list[str] = Field(default_factory=list, description="Associated guard names/decorators")
+    guards: list[str] = Field(default_factory=list, max_length=128, description="Associated guard names/decorators")
     router_prefix: str = Field(default="", max_length=512)
     is_async: bool = Field(default=False)
 
@@ -197,14 +279,21 @@ class GuardSignature(BaseContract):
     mechanism_type: GuardMechanismType
     file_path: str = Field(description="Normalized workspace-relative path where guard is defined")
     line_range: LineRange
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0, allow_inf_nan=False)
     rationale: str = Field(max_length=2000)
-    checked_identifiers: list[str] = Field(default_factory=list)
+    checked_identifiers: list[str] = Field(default_factory=list, max_length=256)
 
     @field_validator("file_path")
     @classmethod
     def validate_path(cls, v: str) -> str:
         return normalize_and_validate_path(v)
+
+    @field_validator("name", "rationale", mode="before")
+    @classmethod
+    def sanitize(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return sanitize_text(v, max_length=2000)
+        return v
 
 
 class Evidence(BaseContract):
@@ -226,7 +315,7 @@ class Evidence(BaseContract):
     @classmethod
     def sanitize(cls, v: Any) -> Any:
         if isinstance(v, str):
-            return sanitize_text(v)
+            return sanitize_text(v, max_length=10000)
         return v
 
 
@@ -259,7 +348,7 @@ class Finding(BaseContract):
     description: str = Field(max_length=5000)
     severity: SeverityLevel
     confidence: ConfidenceLevel
-    evidence: list[Evidence] = Field(min_length=1)
+    evidence: list[Evidence] = Field(min_length=1, max_length=100)
     unproven_assumptions: str = Field(default="", max_length=2000)
     needs_review: bool = Field(default=False)
 
@@ -267,7 +356,7 @@ class Finding(BaseContract):
     @classmethod
     def sanitize(cls, v: Any) -> Any:
         if isinstance(v, str):
-            return sanitize_text(v)
+            return sanitize_text(v, max_length=5000)
         return v
 
 
@@ -285,43 +374,43 @@ class Verdict(BaseContract):
     finding_id: str = Field(min_length=1, max_length=64)
     status: VerdictStatus
     rationale: str = Field(max_length=5000)
-    cited_evidence_ids: list[str] = Field(default_factory=list)
-    confidence: float = Field(ge=0.0, le=1.0)
+    cited_evidence_ids: list[str] = Field(default_factory=list, max_length=100)
+    confidence: float = Field(ge=0.0, le=1.0, allow_inf_nan=False)
 
     @field_validator("rationale", mode="before")
     @classmethod
     def sanitize(cls, v: Any) -> Any:
         if isinstance(v, str):
-            return sanitize_text(v)
+            return sanitize_text(v, max_length=5000)
         return v
 
 
 class Score(BaseContract):
     """Deterministic architectural security-debt score."""
 
-    overall_score: float = Field(ge=0.0, le=100.0, description="0 (severe debt) to 100 (clean)")
-    factor_scores: dict[str, float] = Field(description="Scores per category (A, B, C)")
-    weights: dict[str, float] = Field(description="Heuristic weights used")
+    overall_score: float = Field(ge=0.0, le=100.0, allow_inf_nan=False, description="0 (severe debt) to 100 (clean)")
+    factor_scores: dict[str, float] = Field(max_length=32, description="Scores per category (A, B, C)")
+    weights: dict[str, float] = Field(max_length=32, description="Heuristic weights used")
     rationale: str = Field(max_length=2000)
-    coverage_penalty: float = Field(ge=0.0, le=100.0, default=0.0)
+    coverage_penalty: float = Field(ge=0.0, le=100.0, default=0.0, allow_inf_nan=False)
 
     @field_validator("rationale", mode="before")
     @classmethod
     def sanitize(cls, v: Any) -> Any:
         if isinstance(v, str):
-            return sanitize_text(v)
+            return sanitize_text(v, max_length=2000)
         return v
 
 
 class Coverage(BaseContract):
-    """Analysis coverage and degredation manifest."""
+    """Analysis coverage and degradation manifest."""
 
     scanned_files: int = Field(ge=0)
     total_files: int = Field(ge=0)
-    skipped_files: dict[str, str] = Field(default_factory=dict, description="path -> skip reason")
+    skipped_files: dict[str, str] = Field(default_factory=dict, max_length=5000, description="path -> skip reason")
     routes_found: int = Field(ge=0)
     guards_found: int = Field(ge=0)
-    parse_errors: list[str] = Field(default_factory=list)
+    parse_errors: list[str] = Field(default_factory=list, max_length=1000)
     model_fallback_active: bool = Field(default=False)
 
     @property
@@ -351,8 +440,8 @@ class RunManifest(BaseContract):
 
     run_id: str = Field(min_length=1, max_length=64)
     target_name: str = Field(min_length=1, max_length=256)
-    timestamp: str = Field(description="ISO-8601 UTC timestamp")
-    files: list[IngestedFileRecord] = Field(default_factory=list)
+    timestamp: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$", description="ISO-8601 UTC timestamp")
+    files: list[IngestedFileRecord] = Field(default_factory=list, max_length=100_000)
     total_files: int = Field(ge=0)
     total_bytes: int = Field(ge=0)
     manifest_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -362,8 +451,8 @@ class TraceEvent(BaseContract):
     """Telemetry and trace event record."""
 
     event_id: str = Field(min_length=1, max_length=64)
-    timestamp: str = Field(description="ISO-8601 UTC timestamp")
+    timestamp: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$", description="ISO-8601 UTC timestamp")
     stage: str = Field(max_length=64)
     span_name: str = Field(max_length=128)
-    duration_ms: float = Field(ge=0.0)
+    duration_ms: float = Field(ge=0.0, allow_inf_nan=False)
     attributes: dict[str, Any] = Field(default_factory=dict)

@@ -225,5 +225,33 @@
 ### Next step
 - Begin remediation of reported adversarial issues (#1 through #5) on `agent-a/work`.
 
+---
+
+## Entry 5 — 2026-10-12T16:15:00Z — Agent A — Remediation of Issues #1-#5
+
+### Commit(s)
+- Pending commit for issues #1-#5 fixes.
+
+### What changed
+- `src/reposentry/contracts/models.py`:
+  - Resolved **Issue #1**: Added `WINDOWS_RESERVED_DEVICE_NAMES` check, rejected colons `:`, leading `/` and `\`, UNC network paths `//`, and trailing dots/spaces in `normalize_and_validate_path`.
+  - Resolved **Issue #3**: Added `max_length` limits to collections (`parameters: 256`, `decorators: 128`, `guards: 128`, `evidence: 100`, `parse_errors: 1000`, `skipped_files: 5000`). Enforced `allow_inf_nan=False` on all floats. Added float quantization (4 decimal places) in `canonical_json` for cross-platform deterministic hashing.
+  - Resolved **Issue #4**: In `sanitize_text`, applied `unicodedata.normalize('NFKC')` and stripped all Unicode format characters (`Cf`), including Bidi RTL overrides (`\u202E`), zero-width spaces (`\u200B`), and BOM (`\uFEFF`).
+- `src/reposentry/config/settings.py`:
+  - Resolved **Issue #2**: Converted `llm_api_key` to `SecretStr | None` with `Field(exclude=True)`. Masked secrets in `__repr__` and `__str__`. Added cleartext retrieval via `require_secret()` without error leakage.
+- `src/reposentry/cli/main.py`:
+  - Resolved **Issue #5**: Added `validate_cli_target_path` preventing device file targets, `sanitize_cli_output` stripping ANSI terminal escape sequences, and structured error handling.
+- Tests:
+  - Updated `tests/test_contracts/test_adversarial.py` with device names, ADS, UNC, Bidi overrides, zero-width chars, unbounded lists, and NaN/Inf float tests.
+  - Updated `tests/test_contracts/test_config.py` with SecretStr masking and serialization tests.
+  - Added `tests/test_cli/test_cli_safety.py` covering device name rejection and ANSI stripping.
+
+### Why
+- Fixes verified vulnerabilities identified in the adversarial audit (GitHub issues #1 through #5).
+
+### Next step
+- Fix Issue #6 in `reposentry-agent-b` (C6 Gateway uncharged token bug).
+
+
 
 

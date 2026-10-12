@@ -7,11 +7,11 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 
 class RepoSentryConfig(BaseModel):
-    """Immutable, layered runtime configuration."""
+    """Immutable, layered runtime configuration with strict secret isolation."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -33,8 +33,20 @@ class RepoSentryConfig(BaseModel):
     dominant_threshold: float = Field(default=0.75, ge=0.5, le=1.0)
     enable_llm_judge: bool = Field(default=False)
 
-    # Secrets (NEVER load from file; only from environment)
-    llm_api_key: str | None = Field(default=None)
+    # Secrets (strictly excluded from serialization and dumps; NEVER load from file)
+    llm_api_key: SecretStr | None = Field(default=None, exclude=True)
+
+    def __repr__(self) -> str:
+        fields = []
+        for k, v in self.__dict__.items():
+            if isinstance(v, SecretStr):
+                fields.append(f"{k}=**********")
+            else:
+                fields.append(f"{k}={v!r}")
+        return f"RepoSentryConfig({', '.join(fields)})"
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
     @classmethod
     def load(
@@ -75,14 +87,16 @@ class RepoSentryConfig(BaseModel):
             f"{env_prefix}MAX_COMPRESSION_RATIO": ("max_compression_ratio", float),
             f"{env_prefix}DOMINANT_THRESHOLD": ("dominant_threshold", float),
             f"{env_prefix}ENABLE_LLM_JUDGE": ("enable_llm_judge", bool),
-            f"{env_prefix}LLM_API_KEY": ("llm_api_key", str),
+            f"{env_prefix}LLM_API_KEY": ("llm_api_key", SecretStr),
         }
 
         for env_key, (attr_name, attr_type) in env_mapping.items():
             if env_key in os.environ:
                 raw_val = os.environ[env_key]
-                if attr_type is bool:
-                    val: Any = raw_val.strip().lower() in ("1", "true", "yes")
+                if attr_type is SecretStr:
+                    val: Any = SecretStr(raw_val.strip())
+                elif attr_type is bool:
+                    val = raw_val.strip().lower() in ("1", "true", "yes")
                 elif attr_type is int:
                     val = int(raw_val.strip())
                 elif attr_type is float:
@@ -96,8 +110,20 @@ class RepoSentryConfig(BaseModel):
     def require_secret(self, secret_name: str) -> str:
         """Require a secret value or raise a sanitized error that never echoes sensitive content."""
         val = getattr(self, secret_name, None)
-        if not val or not str(val).strip():
+        if val is None:
             raise RuntimeError(
                 f"Required secret '{secret_name}' is not configured in environment."
             )
-        return str(val)
+        if isinstance(val, SecretStr):
+            secret_str = val.get_secret_value()
+            if not secret_str.strip():
+                raise RuntimeError(
+                    f"Required secret '{secret_name}' is configured but empty."
+                )
+            return secret_str
+        raw_str = str(val).strip()
+        if not raw_str:
+            raise RuntimeError(
+                f"Required secret '{secret_name}' is configured but empty."
+            )
+        return raw_str
