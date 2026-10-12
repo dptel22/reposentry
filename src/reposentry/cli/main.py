@@ -80,7 +80,7 @@ def version() -> None:
 
 @cli.command()
 @click.argument("target", type=str)
-@click.option("--output", "-o", type=click.Path(), default=None, help="Output file path.")
+@click.option("--output", "-o", type=click.Path(), default=None, help="Output workspace directory.")
 @click.pass_context
 def ingest(ctx: click.Context, target: str, output: str | None) -> None:
     """Ingest a repository into a read-only workspace.
@@ -89,13 +89,26 @@ def ingest(ctx: click.Context, target: str, output: str | None) -> None:
     """
     try:
         resolved_path = validate_cli_target_path(target)
-        click.echo(sanitize_cli_output(f"Ingesting: {resolved_path} (output={output})"))
-        click.echo("Not yet implemented — skeleton only.")
+        from reposentry.ingest.sandbox import WorkspaceSandbox
+
+        sandbox = WorkspaceSandbox()
+        if resolved_path.is_file() and resolved_path.suffix.lower() == ".zip":
+            result = sandbox.ingest_archive(resolved_path, target_workspace=output)
+        else:
+            result = sandbox.ingest_directory(resolved_path, target_workspace=output)
+
+        click.echo(
+            sanitize_cli_output(
+                f"Ingested {result.manifest.total_files} files into {result.workspace_dir} "
+                f"(manifest_hash={result.manifest.manifest_hash[:12]})"
+            )
+        )
     except Exception as exc:
         if ctx.obj.get("verbose"):
             raise
         click.echo(sanitize_cli_output(f"Error: {exc}"), err=True)
         sys.exit(1)
+
 
 
 @cli.command()

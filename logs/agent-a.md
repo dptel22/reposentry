@@ -250,7 +250,36 @@
 - Fixes verified vulnerabilities identified in the adversarial audit (GitHub issues #1 through #5).
 
 ### Next step
-- Fix Issue #6 in `reposentry-agent-b` (C6 Gateway uncharged token bug).
+- Build Component C1 (Ingest and workspace sandbox) with unit and adversarial suites.
+
+---
+
+## Entry 6 — 2026-10-12T16:50:00Z — Agent A — Phase P1 — Component C1 Ingest Sandbox
+
+### Commit(s)
+- Pending commit for Component C1.
+
+### What changed
+- Created `src/reposentry/ingest/sandbox.py`:
+  - `WorkspaceSandbox` for directory and archive ingestion.
+  - Safe materialization of untrusted code into isolated workspaces as plain data.
+  - Automatic exclusion of VCS directories (`.git`, `.svn`) and hostile hooks.
+  - Automatic filtering of vendor directories (`node_modules`, `vendor`, `.venv`, etc.), generated files (`build`, `dist`), and binary files (`.png`, `.pyc`, `.so`, etc.).
+  - Security defenses against Zip-Slip (path traversal in archive entries), Zip-Bomb (compression ratio and uncompressed byte caps), and hostile symlinks escaping workspace roots.
+  - Deterministic alphabetical file ordering and reproducible `RunManifest` SHA256 content hashing.
+  - UTF-8 fallback decoding to safely sanitize non-compliant text files.
+- Wired CLI `ingest` command to `WorkspaceSandbox` in `src/reposentry/cli/main.py`.
+- Recorded Decision D3 (Ingest Sandbox Security Policy) in `docs/DECISIONS.md`.
+- Added test suites:
+  - `tests/test_ingest/test_ingest_unit.py`: standard directory ingest, vendor/VCS dropping, binary dropping, oversize file skipping, deterministic ordering, empty repo handling.
+  - `tests/test_ingest/test_ingest_adversarial.py`: Zip-Slip blocked, Zip-Bomb ratio and size limits, tiny file counts capped, hostile `.git` hooks stripped.
+
+### Why
+- Fulfills Component C1 specification in Phase P1 (§7).
+
+### Next step
+- Build Component C2 (AST Parsing: Flask/FastAPI route extraction, line ranges, call graph).
+
 
 
 

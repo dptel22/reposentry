@@ -29,17 +29,21 @@
 
 - **2026-10-11 — D1: Python version baseline set to >=3.11**
   - **Context:** Requires modern typing features, `typing.Self`, exception groups, and stdlib AST performance improvements.
-  - **Decision:** Python 3.11+ minimum.
-  - **Evidence:** Python 3.11 introduced major speedups in AST parsing and fine-grained error locations (`end_lineno`, `end_col_offset` in stdlib `ast`), critical for C2 exact range extraction.
-
 - **2026-10-11 — D2: CLI Structure (Single Entry Point with Subcommands)**
   - **Context:** Plan §1 review corrections requirement: "One CLI entry point".
   - **Decision:** Command group `reposentry` with subcommands `scan`, `ingest`, `parse`, `version`.
   - **Evidence:** Follows UNIX philosophy while presenting an integrated tool surface.
+
+- **2026-10-12 — D3: Ingest Sandbox Archive & Directory Security Policy (C1)**
+  - **Context:** Scanned repositories must be treated as untrusted data input.
+  - **Decision:** Materialize repositories into isolated workspaces as pure data. Strip VCS metadata (`.git`, `.svn`) and hooks. Filter vendor (`node_modules`, `vendor`, `.venv`) and binary files. Enforce zip-slip detection, zip bomb compression ratio limits (max 100.0), total size bounds, and deterministic alphabetical file ordering for reproducible `RunManifest` hashing.
+  - **Evidence:** Git advisory on untrusted repository execution and OWASP 2025 LLM Security Top 10 recommendations.
+
 
 ---
 
 ## Contract Changes
 
 _No contract changes yet. Contracts v0 baseline in progress._
+
 
