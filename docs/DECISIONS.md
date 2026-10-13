@@ -96,3 +96,25 @@ _Contract change decisions will be referenced here._
 - **Revisit when:** A dedicated application secret-management/config layer provides a stable key-loading contract.
 - **Date:** 2026-10-12
 - **Agent:** B
+
+### D-B1-007 — C5 lexical BM25 implementation without a packaging dependency
+
+- **Decision:** Implement the C5 lexical scorer and identifier tokenizer with the Python standard library behind a small index interface. Keep dense retrieval behind an injected embedder protocol; if embeddings are unavailable or fail, return lexical results and mark dense retrieval degraded. This supersedes the `bm25s` implementation preference in D-B1-002 for this branch.
+- **Alternatives considered:** Add `bm25s` to shared `pyproject.toml` via a CCR; use `rank-bm25`; block C5 until packaging ownership is available.
+- **Evidence:** `docs/OPERATING_CONTRACT.md` assigns `pyproject.toml` to Agent A and requires a CCR for shared dependency changes; the workspace has no dependency installed for C5, and the package index was unreachable during the current session.
+- **Why chosen:** The plan requires deterministic BM25 ranking and lexical-only degradation; an in-house implementation allows offline C5 tests without modifying Agent A's owned packaging configuration.
+- **Reversibility:** The lexical index interface is independent of the scoring backend and can adopt `bm25s` later without changing indexed chunk/result types.
+- **Revisit when:** Agent A accepts a dependency CCR or the retrieval benchmark measures a clear gain from `bm25s`.
+- **Date:** 2026-10-12
+- **Agent:** B
+
+### D-B1-008 — Provisional cumulative definitions for C10 arms A–E
+
+- **Decision:** Until the shared ablation runner provides a contract, define Agent B's standalone adapter configs cumulatively: A deterministic candidates only; B adds the judge; C adds retrieval to the judge; D adds C8 verification of the judge's cited output; E adds the bounded C7 agent and preserves its separately labeled hypothesis channel. This is a provisional adapter mapping, not a claim that the full benchmark arms have run.
+- **Alternatives considered:** Leave Agent B's arm adapters absent; create five independent non-cumulative configs; treat E as an agent replacing the judge/verifier path.
+- **Evidence:** P4 explicitly calls C the “+retrieval” arm; the plan says verification only matters when the LLM authors citations, and recall can exceed B only when the agent proposes candidates. The plan contains no detailed A–E table or runner interface in this checkout.
+- **Why chosen:** This mapping satisfies the explicit plan constraints and exposes the missing runner contract; no arm silently gains retrieval, verification, or new candidates.
+- **Reversibility:** Arm config values and the adapter's callback protocol are local to Agent B and can be mapped to Agent A's eventual runner contract.
+- **Revisit when:** The shared C10 ablation runner and exact arm definitions are available.
+- **Date:** 2026-10-12
+- **Agent:** B

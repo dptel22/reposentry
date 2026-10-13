@@ -217,3 +217,80 @@
 2. Review Windows-native verifier path and descriptor behavior.
 3. Commit the fixes and add a separate log commit referencing the implementation commit.
 
+
+## Entry 4 — 2026-10-12T17:03:53Z — Agent B — Phase P4/P5 — Components C5/C7/C10/C12
+
+### Commit(s)
+- Uncommitted working-tree continuation; no commit created.
+
+### What changed
+- Added C5 deterministic Python function/class/module chunks with exact line provenance, identifier-aware tokenization, stdlib BM25, optional injected dense embeddings, reciprocal-rank fusion, lexical-only degradation, and retrieval metrics.
+- Added C10 retrieval benchmark runner with per-query and aggregate Recall@k, MRR, and nDCG output, plus provisional cumulative A–E adapters.
+- Added C7 bounded judge pipeline and read-only agent/tool layer. Tool results are now bounded before they enter agent state; clipped tool text is explicitly non-citable. Added regression coverage for this bound and source-citation handling.
+- Added C12 trace-derived operational counters and framework-neutral liveness/readiness helpers.
+- Removed the untracked `tmpf6igno5x/app.py` smoke artifact.
+
+### Why
+- Continue Agent B ownership items from the frozen plan: C5, C7, C10 retrieval benchmark/arm adapters, and C12. Security fixes for issues #6–#11 were completed in the prior working-tree continuation.
+
+### Decisions
+- **Decision:** Bound tool result data at ingestion into the agent loop, preserving exact-source citation status only when text was not clipped.
+  - **Alternatives considered:** Bound only the serialized model context later; truncate while constructing evidence without tracking source exactness.
+  - **Evidence:** The agent retains tool history across steps, so model-context truncation alone does not bound retained result size; clipped text no longer matches its original source range.
+  - **Why chosen:** Enforces a per-result state bound and prevents truncated evidence from being cited as exact source.
+  - **Reversibility:** Local C7 behavior/config only.
+  - **Revisit when:** A shared tool result contract supplies an equivalent byte-level bound.
+
+### Plan deviations
+- Dense retrieval remains behind an injected embedder protocol; the plan-default Jina model is not installed or loaded because packaging is Agent A-owned and the recorded model license is non-commercial. No production/benchmark quality claim is made for dense retrieval.
+- Arm A–E mappings remain provisional per D-B1-008; no full ablation was run.
+
+### Tests
+- Python AST parse over all source and test Python files: `AST_OK 50`.
+- `git diff --check`: passed (Git reported only an LF-to-CRLF notice for `observability/__init__.py`).
+- Direct bundled-Python smoke: tool result stayed at or below 512 serialized characters; truncated result was marked non-citable; bounded agent tool→grounded verdict flow passed; one-query retrieval benchmark returned Recall@2=1.0, MRR=1.0, nDCG@2=1.0; adapters A–E each executed one candidate successfully.
+- Pytest availability probe: `PYTEST_AVAILABLE False`. No pytest suite was run. No clean-environment run was performed.
+
+### Adversarial self-review
+- C7 tool outputs are reduced to JSON-safe scalar fields and capped before retaining in history. Truncation clears `source_exact`, excluding it from citations.
+- Candidate ordering is stable and duplicate IDs are rejected in arm adapters.
+- Retrieval paths reject absolute and parent traversal paths; oversized chunks are bounded and a single-line split is marked non-citable.
+- Dense failures degrade to lexical results with an explicit coverage reason.
+- Remaining risk: these are initial implementations with direct smoke evidence only; test assertions have not been executed by pytest.
+
+### Assumptions and NOT VERIFIED items
+- NOT VERIFIED: complete pytest suites, cross-platform runtime behavior, and clean-environment setup.
+- NOT VERIFIED: Jina model compatibility/quality in this implementation; embedding-model license constraints remain as recorded in D-B1-A.
+- NOT VERIFIED: integration with Agent A's future shared ablation runner and C0 contracts.
+
+### Risks and open questions
+- The plan requires measured A–E ablation output. The adapter callbacks exist, but shared-runner integration and benchmark measurements remain pending.
+- The fixed labeled retrieval benchmark currently has tiny synthetic test data; a representative labeled repository corpus and measured table remain pending.
+- Dense embeddings need an approved model/license and packaging CCR before deployment.
+
+### Next step
+- Run all Agent B tests in a supported Python/pytest clean environment; then integrate adapters with Agent A's shared C10 runner and generate the labeled retrieval benchmark table.
+
+---
+
+## END-OF-SESSION — 2026-10-12T17:03:53Z — Agent B
+
+### Gate status table
+| Gate | Status | Evidence |
+|---|---|---|
+| P3 | Partial; no gate claim | Prior direct security smoke, AST and diff checks; pytest and clean-environment evidence unavailable. Judge is implemented but its pytest suite remains unrun. |
+| P4 | Partial; no gate claim | C5, benchmark runner, and regression tests added; direct synthetic benchmark smoke passed. Dense model, representative corpus/table, pytest, and clean-environment gate remain unverified. |
+| P5 | Partial; no gate claim | Bounded agent and A–E adapters plus tests added; direct one-candidate adapter smoke passed. Full ablation, failure-injection/metamorphic suites, pytest, and clean-environment evidence remain pending. |
+
+### Blockers
+- Bundled Python has no pytest; package-index DNS/network was unavailable during the earlier attempt to provision pytest. Windows-native checks and clean-environment verification are not available in this session.
+
+### What the other agent needs from you
+- The branch has uncommitted Agent B security fixes and C5/C7/C10/C12 continuation files. Persistent replay requires a separately provisioned 32+ byte HMAC key.
+- No gate is claimed passed. Do not treat direct smoke checks as pytest or clean-environment evidence.
+
+### What you would do next
+1. Run `tests/test_gateway`, `tests/test_verifier`, `tests/test_judge`, `tests/test_retrieval`, and `tests/test_observability` with pytest, followed by the full suite in a fresh environment.
+2. Verify Windows DOS-device and file-open behavior on a Windows-native test run.
+3. Supply/approve a representative labeled retrieval corpus and integrate with the shared C10 runner to measure full A–E arms.
+4. Review, commit, and push only after the requested integration and verification steps are complete.
