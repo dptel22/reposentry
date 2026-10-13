@@ -1,0 +1,1 @@
+"""RepoSentry CLI package."""

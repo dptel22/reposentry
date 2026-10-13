@@ -1,0 +1,12 @@
+{
+  "schema_version": "0.1.0",
+  "event_id": "trc-010203",
+  "timestamp": "2026-10-11T12:00:01Z",
+  "stage": "C2_PARSE",
+  "span_name": "ast_extract_routes",
+  "duration_ms": 14.25,
+  "attributes": {
+    "file_path": "app/routes/users.py",
+    "routes_found": 1
+  }
+}

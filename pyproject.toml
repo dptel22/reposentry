@@ -1,0 +1,134 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "reposentry"
+version = "0.1.0"
+description = "Evidence-backed architectural security-debt analyzer for Python Flask/FastAPI repositories"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "RepoSentry Team" },
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "click>=8.5.0,<9",
+    "pydantic>=2.14.0,<3",
+    "rich>=15.0.0,<16",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1.1,<10",
+    "pytest-cov>=6.1.0,<7",
+    "ruff>=0.17.0,<1",
+    "mypy>=2.4.0,<3",
+]
+security = [
+    "bandit[toml]>=1.9.4,<2",
+    "semgrep>=1.180.0,<2",
+]
+
+[project.scripts]
+reposentry = "reposentry.cli.main:cli"
+
+# ─── Hatch build configuration ───
+[tool.hatch.build.targets.wheel]
+packages = ["src/reposentry"]
+
+# ─── Ruff configuration ───
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "S",    # flake8-bandit (security)
+    "A",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "DTZ",  # flake8-datetimez
+    "T20",  # flake8-print
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "S101",  # allow assert in tests
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S106", "S108"]
+"fixtures/**/*.py" = ["S101", "S106", "S108", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["reposentry"]
+
+# ─── Mypy configuration ───
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ─── Pytest configuration ───
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "-ra",
+]
+markers = [
+    "golden: golden-file comparison tests",
+    "adversarial: adversarial/hostile-input tests",
+    "slow: tests that are slow to run",
+    "integration: integration tests requiring multiple components",
+]
+
+# ─── Coverage configuration ───
+[tool.coverage.run]
+source = ["reposentry"]
+omit = ["tests/*", "fixtures/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 0
+
+# ─── Bandit configuration ───
+[tool.bandit]
+exclude_dirs = ["tests", "fixtures"]
+skips = []

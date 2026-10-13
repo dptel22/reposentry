@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.1.0",
+  "evidence_id": "ev-883a9f1b",
+  "file_path": "app/routes/users.py",
+  "line_range": {
+    "schema_version": "0.1.0",
+    "start_line": 30,
+    "end_line": 34,
+    "start_col": 4,
+    "end_col": 28
+  },
+  "snippet": "if not current_user.is_admin:\n    raise HTTPException(status_code=403, detail='Forbidden')",
+  "description": "Inline imperative role check instead of declared dependency guard.",
+  "ast_node_type": "If"
+}

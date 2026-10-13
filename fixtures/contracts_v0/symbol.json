@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1.0",
+  "name": "get_user_profile",
+  "kind": "function",
+  "file_path": "app/routes/users.py",
+  "line_range": {
+    "schema_version": "0.1.0",
+    "start_line": 24,
+    "end_line": 38,
+    "start_col": 0,
+    "end_col": 35
+  },
+  "docstring": "Retrieve user profile details by ID.",
+  "parameters": ["user_id", "current_user"],
+  "return_type": "UserProfileResponse",
+  "decorators": ["router.get", "require_auth"]
+}
