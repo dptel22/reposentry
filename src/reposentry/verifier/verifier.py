@@ -43,19 +43,39 @@ from .types import (
 
 MAX_RANGE_LINES = 5000
 """Cited ranges spanning more than this many lines are rejected as enormous."""
+MAX_SOURCE_BYTES = 5 * 1024 * 1024
+"""Files larger than this are downgraded without being read into memory."""
 
 _WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:")
 
 
-def _read_source_lines(abs_path: str) -> list[str]:
+def _read_source_lines(abs_path: str, workspace_real: str) -> list[str]:
     """Read a file as UTF-8 text, split on newlines without raising.
 
     Decoding errors are replaced so a malformed file yields a deterministic
     quote mismatch instead of an exception. The verifier never executes or
     writes scanned files.
     """
-    with open(abs_path, "rb") as fh:
-        raw = fh.read()
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(abs_path, flags)
+    try:
+        before = os.fstat(fd)
+        if before.st_size > MAX_SOURCE_BYTES:
+            raise _OversizedSourceError
+        # Confirm the pathname still names the opened regular file. O_NOFOLLOW
+        # closes the final-component symlink race on platforms that support it.
+        current = os.stat(abs_path, follow_symlinks=False)
+        if (before.st_dev, before.st_ino) != (current.st_dev, current.st_ino):
+            raise OSError("source file changed while opening")
+        opened_path = os.path.realpath(abs_path)
+        if not _realpath_confined(workspace_real, opened_path):
+            raise OSError("source file escaped workspace while opening")
+        with os.fdopen(fd, "rb", closefd=False) as fh:
+            raw = fh.read(MAX_SOURCE_BYTES + 1)
+        if len(raw) > MAX_SOURCE_BYTES:
+            raise _OversizedSourceError
+    finally:
+        os.close(fd)
     text = raw.decode("utf-8", errors="replace")
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     # A trailing newline produces a final empty element; drop it so line
@@ -63,6 +83,10 @@ def _read_source_lines(abs_path: str) -> list[str]:
     if lines and lines[-1] == "":
         lines.pop()
     return lines
+
+
+class _OversizedSourceError(Exception):
+    pass
 
 
 def _confined_relative_path(path: str) -> Reason | None:
@@ -78,6 +102,12 @@ def _confined_relative_path(path: str) -> Reason | None:
     parts = path.replace("\\", "/").split("/")
     if any(part == ".." for part in parts):
         return Reason.PATH_ESCAPES_WORKSPACE
+    def is_dos_device(part: str) -> bool:
+        base = part.split(":", 1)[0].rstrip(" .").split(".", 1)[0].rstrip(" ")
+        return bool(re.fullmatch(r"(?i)(?:con|prn|aux|nul|com[1-9]|lpt[1-9])", base))
+
+    if any(is_dos_device(part) for part in parts):
+        return Reason.PATH_NOT_RELATIVE
     return None
 
 
@@ -117,7 +147,9 @@ def check_citation(
         return fail(Reason.FILE_NOT_FOUND, evidence.path)
 
     try:
-        source_lines = _read_source_lines(resolved)
+        source_lines = _read_source_lines(resolved, workspace_real)
+    except _OversizedSourceError:
+        return fail(Reason.FILE_OVERSIZED, f"file exceeds {MAX_SOURCE_BYTES} bytes")
     except OSError as exc:
         return fail(Reason.FILE_NOT_FOUND, str(exc))
 

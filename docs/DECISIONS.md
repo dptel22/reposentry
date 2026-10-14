@@ -74,3 +74,25 @@ _Architecture decisions will be recorded here with evidence._
 ## Contract Changes
 
 _Contract change decisions will be referenced here._
+
+### D-B1-005 — Replay recording integrity and local signing key
+
+- **Decision:** Authenticate each filesystem replay record with HMAC-SHA256 over both its cache key and canonical record payload. Accept a protected `REPOSENTRY_REPLAY_HMAC_KEY` (minimum 32 bytes) or a programmatic key; otherwise use a randomly generated local key in `.replay-hmac-key`. Reject unsigned, malformed, or invalidly signed recordings. Ignore the local key file.
+- **Alternatives considered:** Hard-coded repository key (not secret and trivially forgeable); unsigned hash (attacker can recompute); environment-only key (breaks default persistent replay unless every caller configures it).
+- **Evidence:** Issue #9's tampering scenario; Python stdlib `hmac` and `secrets` avoid new dependencies. Key binding prevents moving a valid recording to another cache-key filename.
+- **Why chosen:** Keeps local replay usable by default while allowing deployments and shared CI to provide a protected key. With the generated local key, a workspace owner who can read both cassettes and key can forge cassettes; callers requiring separation must provide `RecordingStore(..., key=...)` or configure the environment variable from protected secret storage.
+- **Reversibility:** Local recording format changes from a raw record to a signed envelope; unsigned legacy records are rejected and can be regenerated.
+- **Revisit when:** Replay artifacts are shared across hosts/CI or their signing key can be provisioned through the application secret-management path.
+- **Date:** 2026-10-12
+- **Agent:** B
+
+### D-B1-006 — Replay signing secret must be provisioned outside the cassette store
+
+- **Decision:** Correct D-B1-005: filesystem `RecordingStore` requires a key passed with `key=` or a `REPOSENTRY_REPLAY_HMAC_KEY` environment variable (minimum 32 UTF-8 bytes). Do not generate/store a key beside cassettes. MemoryStore remains keyless because it does not persist or load filesystem artifacts.
+- **Alternatives considered:** Keep the generated local key beside cassettes; store an automatic key in a user-profile directory; require protected external provisioning.
+- **Evidence:** Adversarial threat model in issue #9: an actor who can read/modify local cassette files can read a sibling key and recompute a valid HMAC. A key must be provisioned outside the artifact trust boundary to provide authenticity.
+- **Why chosen:** The HMAC provides no authenticity if its key is available to the cassette editor. Explicit external key provisioning is fail-closed and supports protected CI secret stores.
+- **Reversibility:** Callers can add `key=` or configure the environment. Existing unsigned records remain rejected; prior auto-key local recordings are no longer verifiable and must be regenerated using a provisioned key.
+- **Revisit when:** A dedicated application secret-management/config layer provides a stable key-loading contract.
+- **Date:** 2026-10-12
+- **Agent:** B

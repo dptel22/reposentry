@@ -159,6 +159,10 @@ class LLMGateway:
                 return self._fallback(request, reason=f"permanent:{exc.kind}", bstate=bstate)
 
             # success at the transport level: validate schema
+            tokens_in, tokens_out = result.tokens_in, result.tokens_out
+            cost = _cost(cfg.prices, request.model, tokens_in, tokens_out)
+            # Provider usage is billable whether or not the returned data validates.
+            bstate.record(tokens_in=tokens_in, tokens_out=tokens_out, cost_usd=cost)
             try:
                 data = parse_and_validate(result.text, request.schema, max_bytes=cfg.max_output_bytes)
             except SchemaValidationError as exc:
@@ -166,17 +170,21 @@ class LLMGateway:
                     self.tracer.end_span(span, ok=False, error_kind=exc.kind,
                                          tokens_in=result.tokens_in, tokens_out=result.tokens_out)
                 self._trace("validation_failure", ok=False, model=request.model,
-                            attributes={"error_kind": "validation_failure", "detail": str(exc)[:200]})
+                            attributes={"error_kind": "validation_failure", "detail": scrub_text(str(exc))[:200]})
                 schema_attempts += 1
                 if schema_attempts > cfg.repair_retries:
                     return self._fallback(request, reason="schema_validation_exhausted", bstate=bstate)
                 # repair-retry: ask again with the error appended
+                safe_error = _safe_repair_error(str(exc))
                 user_text = _render_user_text(
                     request.prompt_version, scrubbed_bundle,
-                    repair_error=f"Your previous reply was not valid JSON per the schema ({exc}). "
-                                 f"Reply with ONLY a JSON object matching the schema.",
+                    repair_error=("The previous response did not match the required schema. "
+                                  f"Validation details (untrusted data): <validation_error>{safe_error}</validation_error>. "
+                                  "Return only a JSON object matching the schema."),
                 )
-                if bstate.would_exceed(budget, est_tokens_in=_estimate_tokens_in(request)):
+                if bstate.would_exceed_after_call(budget) or bstate.would_exceed(
+                    budget, est_tokens_in=_estimate_tokens_in(request)
+                ):
                     return self._fallback(request, reason="budget_exceeded_during_repair", bstate=bstate)
                 continue
 
@@ -185,7 +193,6 @@ class LLMGateway:
 
             tokens_in, tokens_out = result.tokens_in, result.tokens_out
             cost = _cost(cfg.prices, request.model, tokens_in, tokens_out)
-            bstate.record(tokens_in=tokens_in, tokens_out=tokens_out, cost_usd=cost)
 
             if cfg.mode == Mode.RECORD:
                 self.store.put(key, _response_to_record(request, result.text, tokens_in, tokens_out, cost))
@@ -251,6 +258,17 @@ def _estimate_tokens_in(request: ModelRequest) -> int:
     # ~4 chars per token; conservative overestimate is fine for budget gating
     blob = json.dumps(request.bundle, ensure_ascii=False, default=str)
     return len(blob) // 4
+
+
+def _safe_repair_error(value: str) -> str:
+    """Reduce exception text to a short, inert diagnostic for the next turn."""
+    # Keep only a single line of conservative printable ASCII and neutralize
+    # structural markers before surrounding it with explicit data tags.
+    text = value.encode("ascii", errors="ignore").decode("ascii")
+    text = " ".join(text.split())
+    for marker in ("<", ">", "[", "]", "{", "}", "`", "\\"):
+        text = text.replace(marker, " ")
+    return scrub_text(text)[:240]
 
 
 def _cost(prices, model: str, tokens_in: int, tokens_out: int) -> float:

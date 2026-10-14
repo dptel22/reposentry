@@ -6,6 +6,11 @@ import re
 from typing import Any
 
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?i)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----"),
+    re.compile(r"(?i)\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis)://[^\s/'\"<>:]+:[^\s/'\"<>@]+@[^\s'\"<>]+"),
+    re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b"),
+    re.compile(r"\bxox(?:b|p|a|r|s)-[A-Za-z0-9-]{10,}\b"),
+    re.compile(r"\bAIza[0-9A-Za-z_-]{30,}\b"),
     re.compile(r"(?i)(api[_-]?key|secret|token|password|passwd|authorization)\s*[=:]\s*\S+"),
     re.compile(r"(?i)bearer\s+[a-z0-9._\-+=/]+"),
     re.compile(r"sk-[A-Za-z0-9]{8,}"),

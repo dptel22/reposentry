@@ -58,6 +58,15 @@ class BudgetState:
         self.spent_tokens_out += tokens_out
         self.spent_cost_usd += cost_usd
 
+    def would_exceed_after_call(self, budget: Budget) -> bool:
+        """Whether an already completed provider call has exhausted a cap."""
+        return (
+            (budget.max_calls is not None and self.spent_calls >= budget.max_calls)
+            or (budget.max_tokens_in is not None and self.spent_tokens_in >= budget.max_tokens_in)
+            or (budget.max_tokens_out is not None and self.spent_tokens_out >= budget.max_tokens_out)
+            or (budget.max_cost_usd is not None and self.spent_cost_usd >= budget.max_cost_usd)
+        )
+
 
 @dataclass(frozen=True)
 class ModelRequest:

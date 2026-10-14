@@ -16,7 +16,7 @@ from reposentry.gateway.canonical import cache_key, input_hash
 from reposentry.gateway.errors import BudgetExceededError, GatewayError, ReplayMissError
 from reposentry.gateway.gateway import LLMGateway
 from reposentry.gateway.provider import FakeModel
-from reposentry.gateway.replay import MemoryStore
+from reposentry.gateway.replay import MemoryStore, RecordingStore, ReplayIntegrityError
 from reposentry.gateway.types import Budget, BudgetState, GatewayConfig, Mode, ModelRequest
 
 from conftest import SECRET, VERDICT_SCHEMA, verdict_payload
@@ -102,6 +102,39 @@ class TestCacheKeySensitivity:
 
 
 class TestReplay:
+    def test_recording_store_authenticates_cassette_and_rejects_tampering(self, tmp_path):
+        store = RecordingStore(tmp_path, key=b"test-key-that-is-at-least-32-bytes!!")
+        store.put("a" * 64, {"raw_text": '{"verdict":"safe"}', "tokens_in": 2})
+        assert store.get("a" * 64)["tokens_in"] == 2
+        cassette = tmp_path / ("a" * 64 + ".json")
+        cassette.write_text(cassette.read_text(encoding="utf-8").replace("safe", "evil"), encoding="utf-8")
+        with pytest.raises(ReplayIntegrityError):
+            store.get("a" * 64)
+
+    def test_recording_store_rejects_unsigned_legacy_cassette(self, tmp_path):
+        store = RecordingStore(tmp_path, key=b"test-key-that-is-at-least-32-bytes!!")
+        (tmp_path / ("b" * 64 + ".json")).write_text('{"raw_text":"forged"}', encoding="utf-8")
+        with pytest.raises(ReplayIntegrityError):
+            store.get("b" * 64)
+
+    def test_recording_store_rejects_cassette_moved_to_another_cache_key(self, tmp_path):
+        store = RecordingStore(tmp_path, key=b"test-key-that-is-at-least-32-bytes!!")
+        store.put("c" * 64, {"raw_text": '{"verdict":"safe"}'})
+        source = tmp_path / ("c" * 64 + ".json")
+        target = tmp_path / ("d" * 64 + ".json")
+        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        with pytest.raises(ReplayIntegrityError):
+            store.get("d" * 64)
+
+    def test_recording_store_requires_separately_provisioned_key(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("REPOSENTRY_REPLAY_HMAC_KEY", raising=False)
+        with pytest.raises(ReplayIntegrityError, match="requires key="):
+            RecordingStore(tmp_path)
+
+    def test_recording_store_rejects_short_key(self, tmp_path):
+        with pytest.raises(ReplayIntegrityError, match="at least 32 bytes"):
+            RecordingStore(tmp_path, key=b"too-short")
+
     def test_strict_replay_raises_replay_miss_on_unrecorded_call(self):
         gw = make_gateway([], config=GatewayConfig(mode=Mode.STRICT_REPLAY), store=MemoryStore())
         with pytest.raises(ReplayMissError):

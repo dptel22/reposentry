@@ -92,3 +92,128 @@
 ### Next step
 - Begin remediation of issues #6 through #11 on `agent-b/work`.
 
+---
+
+## Entry 3 — 2026-10-12T16:17:29Z — Agent B — Phase P3 — Components C6, C8, C12
+
+### Commit(s)
+- No commit created; requested fixes are present as working-tree changes for review.
+
+### What changed
+- C6 now accounts for usage/cost immediately after every provider response, including schema-invalid responses, and stops retrying when any configured budget cap is reached.
+- C6 repair feedback sanitizes, redacts, flattens, and truncates exception details before returning them as explicitly marked untrusted diagnostic data.
+- Filesystem replay recordings now use HMAC-SHA256 signatures bound to the request cache key. Unsigned/tampered records fail closed. A random local 256-bit key is generated outside cassette files; `.replay-hmac-key` is ignored by Git. See decision D-B1-005.
+- C8 rejects source files over 5 MiB before unbounded reads, limits reads to 5 MiB + 1 byte, rejects Windows DOS device names, and opens with no-follow plus post-open file identity checks where supported.
+- C12 redaction now covers GitHub and Slack tokens, Google API keys, PEM private-key blocks, and common database URI credentials.
+- Added regression tests for budget accounting, repair prompt injection, cassette tampering/unsigned records, oversized files, DOS device names, and the new secret patterns.
+
+### Why
+- Resolve GitHub issues #6–#11 and close the confirmed C6 budget xfail.
+
+### Decisions
+- **Decision:** Charge usage before parsing the provider response, exactly once per transport success.
+  - **Alternatives considered:** Charge only on valid responses; charge after handling each exception branch.
+  - **Evidence:** Provider usage fields are present on the response regardless of schema validity; prior adversarial test confirmed omitted usage on schema errors.
+  - **Why chosen:** Accounting reflects provider-billed calls, while the single common point avoids success/failure divergence.
+  - **Reversibility:** Local gateway behavior only.
+  - **Revisit when:** Provider adapters expose corrected usage after post-call reconciliation.
+- **Decision:** Authenticate persistent recordings with a generated local key and bind signatures to cache keys.
+  - **Alternatives considered:** Hard-coded repository key; unsigned digest; mandatory environment configuration.
+  - **Evidence:** See D-B1-005 in `docs/DECISIONS.md`.
+  - **Why chosen:** No new dependency or hard-coded secret; invalid payloads and cassette relocation fail closed.
+  - **Reversibility:** Legacy unsigned cassette files must be regenerated.
+  - **Revisit when:** Shared/CI cassette workflows require central key provisioning.
+
+### Plan deviations
+- Replay integrity introduces a signed envelope and local key file, so previously stored raw cassette records are intentionally rejected.
+- The verifier uses a 5 MiB ceiling as the deterministic resource bound.
+
+### Tests
+- Added/updated regression tests in `tests/test_gateway/` and `tests/test_verifier/`.
+- `git diff --check` → passed (only Git line-ending notices).
+- Python AST parse check across 10 changed Python files → passed.
+- Focused pytest command attempted: `.venv/Scripts/python.exe -m pytest tests/test_gateway tests/test_verifier -q --tb=short` → could not run; the workspace venv launcher references a missing `C:\Python314\python.exe`, and pytest is unavailable.
+- `uv run` alternative → could not run; uv was denied permission to write its interpreter cache under the restricted user profile.
+- Clean environment: not run.
+
+### Adversarial self-review
+- Confirmed the retry budget charges invalid and valid outputs exactly once; budget exhaustion blocks subsequent repair calls.
+- Confirmed HMAC covers the record payload and cache key; absent/bad signatures and malformed envelopes fail closed; local key is not committed.
+- Confirmed verifier rejects oversized inputs before reading beyond the configured ceiling and guards final-component symlink opens where `O_NOFOLLOW` exists.
+- Confirmed DOS device filtering handles case, extensions, trailing dots/spaces, and alternate-stream suffixes.
+- Confirmed repair diagnostics discard non-ASCII and structural delimiters and are capped at 240 characters.
+- Runtime tests remain unverified because no usable pytest environment is available.
+
+### Assumptions and NOT VERIFIED items
+- Assumed local cassette directory permissions protect `.replay-hmac-key` from the actor able to alter only cassette artifacts. A workspace owner who can read the key can also re-sign records; callers can inject a separately managed key with `RecordingStore(..., key=...)`.
+- NOT VERIFIED: pytest suites and Windows-specific runtime behavior.
+- NOT VERIFIED: behavior on filesystems with unusual file identity semantics or without `O_NOFOLLOW`.
+
+### Risks and open questions
+- A generated local key is suitable for local tamper detection, but shared/CI replay artifacts should receive a key from protected secret management.
+- Unsigned legacy recordings require regeneration.
+- Test execution is pending a usable Python/pytest runtime.
+
+### Next step
+- Run focused and full tests on a working Python environment; then inspect the complete diff and hand the changes to the next agent for integration.
+
+---
+
+## END-OF-SESSION — 2026-10-12T16:17:29Z — Agent B
+
+### Gate status table
+| Gate | Status | Evidence |
+|---|---|---|
+| P3 | Partial; no gate claim | Targeted tests added but pytest environment unavailable; clean-environment gate not run. |
+
+### Blockers
+- Local test execution is blocked because the Python launcher target is missing and `uv` cannot write its interpreter cache under current filesystem permissions.
+
+### What the other agent needs from you
+- Changes are uncommitted in `agent-b/work`; run the gateway/verifier suites on a functioning Python environment before merge.
+- For shared replay/CI cassettes, provision an HMAC key outside the cassette directory and pass it to `RecordingStore`.
+
+### What you would do next
+1. Run focused gateway/verifier tests and the complete suite in a supported clean environment.
+2. Review cross-platform verifier behavior, especially Windows file identity checks.
+3. Commit the implementation and add the required commit-referencing log entry.
+
+---
+
+## Correction to Entry 3 — 2026-10-12T16:17:29Z — Agent B
+
+- A bundled Python 3.12.14 runtime was found after the initial environment check. Pytest is still unavailable, but a direct stdlib smoke script passed for invalid-response budget charging, repair-feedback sanitization, replay HMAC/tamper rejection, oversized-file rejection, DOS-device path rejection, and GitHub/database-secret redaction.
+- The verifier now checks the canonical path and file identity again after opening, closing the parent-path TOCTOU window by rejecting a swapped path that resolves outside the workspace.
+- Replay keys can be injected with `RecordingStore(..., key=...)` or `REPOSENTRY_REPLAY_HMAC_KEY` (minimum 32 UTF-8 bytes); the local generated key remains the default for local recordings.
+- `git diff --check` passed. Pytest and a clean-environment run remain NOT VERIFIED.
+
+---
+
+## Correction to Entry 3 — 2026-10-12T16:31:19Z — Agent B
+
+- **Replay key security correction:** The earlier locally generated key stored beside cassettes did not protect against an actor who could read the cassette directory. D-B1-006 supersedes the local-key portion of D-B1-005: persistent `RecordingStore` now requires a separately provisioned key via `key=` or `REPOSENTRY_REPLAY_HMAC_KEY`, enforces a 32-byte minimum, and has tests for missing/short keys and cassette relocation. This is fail-closed; memory replay remains keyless.
+- **Pytest attempt:** `uv run --no-project --cache-dir .uv-cache --with pytest --python <bundled-python> -- python -m pytest tests/test_gateway tests/test_verifier -q --tb=short` failed because the sandbox cannot resolve `pypi.org` (DNS/network unavailable). The temporary `.uv-cache` created for the attempt was removed.
+- Repeated stdlib smoke checks passed after the externally provisioned key change. AST parsing for 10 Python files and `git diff --check` passed.
+- Full pytest suites, Windows-native runtime checks, clean-environment gate evidence, commits, and push remain pending.
+
+---
+
+## END-OF-SESSION — 2026-10-12T16:31:19Z — Agent B
+
+### Gate status table
+| Gate | Status | Evidence |
+|---|---|---|
+| P3 | Partial; no gate claim | Smoke checks, AST parse, and diff check passed; pytest could not be installed because network DNS is unavailable; clean environment not run. |
+
+### Blockers
+- Pytest execution is blocked by absent pytest and unavailable package index access. Windows-native verification is unavailable on this host context.
+
+### What the other agent needs from you
+- Persistent replay now requires a protected 32+ byte key via constructor or `REPOSENTRY_REPLAY_HMAC_KEY`; provision it outside cassette artifacts.
+- Working tree contains the issue fixes and regression tests, but full pytest and Windows verification remain pending.
+
+### What you would do next
+1. Run `tests/test_gateway` and `tests/test_verifier` in a host with pytest, then the complete suite.
+2. Review Windows-native verifier path and descriptor behavior.
+3. Commit the fixes and add a separate log commit referencing the implementation commit.
+

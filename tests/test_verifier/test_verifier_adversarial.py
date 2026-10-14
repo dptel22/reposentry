@@ -175,6 +175,23 @@ def test_cited_directory_instead_of_file(tmp_path):
     assert report.claims[0].reason is Reason.FILE_NOT_FOUND
 
 
+def test_oversized_source_is_rejected_before_reading(tmp_path, monkeypatch):
+    from reposentry.verifier import verifier
+
+    path = tmp_path / "large.py"
+    path.write_bytes(b"x" * (verifier.MAX_SOURCE_BYTES + 1))
+    ev = EvidenceItem(id="ev1", path="large.py", start_line=1, end_line=1, snippet="x")
+    report = _verify(tmp_path, [ev], [_claim()])
+    assert report.claims[0].reason is Reason.FILE_OVERSIZED
+
+
+@pytest.mark.parametrize("device", ["CON", "prn.txt", "AUX", "NUL.log", "COM1", "COM9.foo", "LPT1", "lpt9.txt"])
+def test_windows_dos_device_names_are_rejected(device, tmp_path):
+    ev = EvidenceItem(id="ev1", path=device, start_line=1, end_line=1, snippet="x")
+    report = _verify(tmp_path, [ev], [_claim()])
+    assert report.claims[0].reason is Reason.PATH_NOT_RELATIVE
+
+
 def test_verifier_never_raises_on_hostile_bundle(tmp_path):
     hostile = VerdictBundle(
         claims=(

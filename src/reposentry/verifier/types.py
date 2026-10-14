@@ -29,6 +29,7 @@ class Reason(str, Enum):
     PATH_ESCAPES_WORKSPACE = "path_escapes_workspace"
     PATH_SYMLINK_ESCAPE = "path_symlink_escape"
     FILE_NOT_FOUND = "file_not_found"
+    FILE_OVERSIZED = "file_oversized"
     RANGE_INVALID = "range_invalid"
     RANGE_TOO_LARGE = "range_too_large"
     QUOTE_MISMATCH = "quote_mismatch"
