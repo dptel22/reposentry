@@ -1,0 +1,16 @@
+{
+  "schema_version": "0.1.0",
+  "name": "require_auth",
+  "mechanism_type": "auth_check",
+  "file_path": "app/auth/guards.py",
+  "line_range": {
+    "schema_version": "0.1.0",
+    "start_line": 15,
+    "end_line": 28,
+    "start_col": 0,
+    "end_col": 20
+  },
+  "confidence": 0.95,
+  "rationale": "Inspects request.headers for Authorization bearer token and verifies claims.",
+  "checked_identifiers": ["token", "user_id"]
+}

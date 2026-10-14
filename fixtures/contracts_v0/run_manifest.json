@@ -1,0 +1,27 @@
+{
+  "schema_version": "0.1.0",
+  "run_id": "run-20261011-001",
+  "target_name": "sample-fastapi-app",
+  "timestamp": "2026-10-11T12:00:00Z",
+  "files": [
+    {
+      "schema_version": "0.1.0",
+      "file_path": "app/main.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 1420,
+      "skipped": false,
+      "skip_reason": null
+    },
+    {
+      "schema_version": "0.1.0",
+      "file_path": "app/routes/users.py",
+      "sha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      "size_bytes": 3580,
+      "skipped": false,
+      "skip_reason": null
+    }
+  ],
+  "total_files": 2,
+  "total_bytes": 5000,
+  "manifest_hash": "b5d4045c3f466fa91fe2cc6abe79232a1a57cdf104f7a26e716e0a1e2789df78"
+}

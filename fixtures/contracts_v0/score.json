@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1.0",
+  "overall_score": 76.5,
+  "factor_scores": {
+    "A": 70.0,
+    "B": 85.0,
+    "C": 75.0
+  },
+  "weights": {
+    "A": 0.35,
+    "B": 0.25,
+    "C": 0.20,
+    "base": 0.20
+  },
+  "rationale": "Score degraded primarily due to auth consistency anomalies in route handlers.",
+  "coverage_penalty": 0.0
+}

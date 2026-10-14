@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1.0",
+  "scanned_files": 42,
+  "total_files": 45,
+  "skipped_files": {
+    "assets/logo.png": "binary_file",
+    "vendor/legacy.py": "vendor_directory",
+    "large_data.json": "oversized_file"
+  },
+  "routes_found": 18,
+  "guards_found": 3,
+  "parse_errors": [],
+  "model_fallback_active": false
+}
