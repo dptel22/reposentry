@@ -34,6 +34,7 @@ venv.bak/
 Thumbs.db
 desktop.ini
 $RECYCLE.BIN/
+nul
 
 # Test, lint, coverage, and analysis caches
 .coverage
@@ -43,6 +44,7 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .hypothesis/
+.pytest-tmp/
 coverage.xml
 nosetests.xml
 bandit-report.*
@@ -61,3 +63,5 @@ temp/
 .env.*
 !.env.example
 
+# Local tooling
+.mimosa/
